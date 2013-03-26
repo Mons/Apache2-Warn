@@ -60,6 +60,72 @@ CODE:
 	server_rec  *s;
 	request_rec *r;
 	conn_rec    *c;
+	char *b,*p,*e;
+	SV *msg;
+	
+	if (items > 0) {
+		int i;
+		msg = sv_2mortal( newSV(128) );
+		SvUPGRADE( msg, SVt_PV );
+		for( i = 0; i < items; i++ ) {
+			sv_catsv( msg, ST(i) );
+		}
+	} else {
+		msg = sv_2mortal( newSV(128) );
+		SvUPGRADE( msg, SVt_PV );
+	}
+	if ( SvCUR( msg ) == 0 || ( SvCUR( msg ) == 1 && SvPVX(msg)[SvCUR(msg) - 1] == '\n' ) ) {
+		sv_setpv(msg,"Warning: something wrong");
+	}
+	if ( SvPVX(msg)[SvCUR(msg) - 1] == '\n' ) {
+		SvCUR_set(msg, SvCUR(msg) - 1);
+		SvPVX(msg)[SvCUR(msg)] = 0;
+	} else {
+		sv_catpvf(msg, " at %s line %d.", CopFILE(PL_curcop), CopLINE(PL_curcop));
+	}
+	p = b = e = SvPVX(msg);
+	e += SvCUR(msg);
+	
+	(void)modperl_tls_get_request_rec(&r);
+	if (!r) {
+		s = modperl_global_get_server_rec();
+		if (!s) {
+			(void)Perl_croak(aTHX_ "panic: no request_rec, no server_rec for warn call");
+		}
+		
+		for (; p < e; p++) {
+			if (*p == '\n') {
+				ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO | APLOG_STARTUP, 0, s, "%-.*s", p - b, b );
+				b = p+1;
+			}
+		}
+		if (b < e) {
+			ap_log_error(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO | APLOG_STARTUP, 0, s, "%-.*s", e - b, b );
+		}
+		
+		XSRETURN_UNDEF;
+	}
+	c = r->connection;
+	r->connection = 0;
+	
+	for (; p < e; p++) {
+		if (*p == '\n') {
+			ap_log_rerror(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO | APLOG_STARTUP, 0, r, "%-.*s", p - b, b );
+			b = p+1;
+		}
+	}
+	if (b < e) {
+		ap_log_rerror(APLOG_MARK, APLOG_WARNING | APLOG_NOERRNO | APLOG_STARTUP, 0, r, "%-.*s", e - b, b );
+	}
+	
+	r->connection = c;
+	XSRETURN_UNDEF;
+
+void awarn(...)
+CODE:
+	server_rec  *s;
+	request_rec *r;
+	conn_rec    *c;
 	SV *msg;
 	
 	if (items > 0) {

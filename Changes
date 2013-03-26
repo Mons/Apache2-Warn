@@ -1,5 +1,8 @@
 Revision history for Perl extension Apache2::Warn.
 
-0.01  Mar 25 2013
-	Initial version
+0.02  26 Mar 2013
+	- Make warn() to wrap words by \n and move previous one to be awarn
+
+0.01  25 Mar 2013
+	- Initial version
 
